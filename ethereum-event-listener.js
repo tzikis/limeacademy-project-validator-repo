@@ -8,6 +8,11 @@ const {PubSub} = require('@google-cloud/pubsub');
 const Web3 = require('web3');
 const EthereumEvents = require('ethereum-events');
 
+const ethers = require('ethers');
+
+const myWallet = new ethers.Wallet(PRIVATE_KEY, ethers.getDefaultProvider())
+console.log("Signing signatures with address: " + myWallet.address);
+
 ERC20_ABI = require("./ABIs/ERC20.json");
 TOKEN_BRIDGE_ABI = require("./ABIs/TokenBridge.json");
 
@@ -55,6 +60,7 @@ async function publishMessage(data) {
     // const messageId = await pubsub
     //   .topic(topicName)
     //   .publishMessage({data: dataBuffer});
+    console.log("Publishing Validation Signature Message");
     const messageId = await pubsub.topic(topicName).publish(dataBuffer);
     console.log(`Message ${messageId} published.`);
   } catch (error) {
@@ -76,18 +82,22 @@ async function publishEvent(chainId, event){
   console.log(event.values);
 
   const data = {
-    chainId: chainId,
-    targetChainId: event.values._targetChain,
+    functionName: functionName,
+    chainId: event.values._targetChain,
     tokenAddress: event.name == "Lock"? event.values._token: event.values._tokenNativeAddress,
-    ownerAddress: event.name == "Lock"? event.values._owner: event.values._receiver,
+    receiverAddress: event.name == "Lock"? event.values._owner: event.values._receiver,
     amount: event.values._amount,
     nonce: event.name == "Lock"? event.values._nonce: event.values.nonce,
-    wrappedTokenAddress: event.name == "Lock"? null: event.values._wrappedTokenAddress
     }
   
   console.log("Publishing message data:");
   console.log(data);
-  await publishMessage(data);
+
+  const contractAddress = event.values._targetChain == 3? contractsRopsten[0].address : event.values._targetChain == 4? contractsRinkeby[0].address: '0';
+
+  const signature = await createValidSignature(myWallet, contractAddress, data);
+  console.log("Generated Signature: " + signature);
+  await publishMessage({data: data, signature: signature});
 }
 
 async function publishEvents(chainId, events, done){
@@ -97,6 +107,40 @@ async function publishEvents(chainId, events, done){
       await publishEvent(chainId, event)
     }
     done();
+}
+
+async function createValidSignature (_signer, _tokenBridgeContractAddress, message) {
+  // console.log(_signer + " " + _tokenBridgeContractAddress + " " + _functionName + " " + _chainId + " " + _tokenAddress + " " + _receiverAddress + " " + _amount + " " + _nonce);
+
+  const domain = {
+    name: "Tzikis TokenBridge",
+    version: '1',
+    verifyingContract: _tokenBridgeContractAddress
+  };
+
+  // The named list of all type definitions
+  const types = {
+    Verify : [ // array of objects -> properties from erc20withpermit
+    { name: 'functionName', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'tokenAddress', type: 'address' },
+    { name: 'receiverAddress', type: 'address' },
+    { name: 'amount', type: 'uint32' },
+    { name: 'nonce', type: 'uint32' }
+  ]
+  };
+  // owner, tokenBridgeContractAddress, "lock()", chainId, sampleTokenAddress, owner.address, 105, 1 
+  // const message = {
+  //   functionName: _functionName, // Wallet Address
+  //   chainId: _chainId,
+  //   tokenAddress: _tokenAddress, // This is the address of the contract.
+  //   receiverAddress: _receiverAddress, // This is the address of the spender whe want to give permit to.
+  //   amount: _amount,
+  //   nonce: _nonce
+  // };
+
+  let signature = await _signer._signTypedData(domain, types, message);
+  return signature;
 }
 
 const web3Rinkeby = new Web3(WEB3_PROVIDER_RINKEBY);
