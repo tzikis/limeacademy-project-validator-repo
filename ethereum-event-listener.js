@@ -14,7 +14,7 @@ TOKEN_BRIDGE_ABI = require("./ABIs/TokenBridge.json");
 const WEB3_PROVIDER_RINKEBY = new Web3.providers.HttpProvider('https://rinkeby.infura.io/v3/' + INFURA_API_KEY) /* Your web3 provider (e.g. geth, Infura) */;
 const WEB3_PROVIDER_ROPSTEN = new Web3.providers.HttpProvider('https://ropsten.infura.io/v3/' + INFURA_API_KEY) /* Your web3 provider (e.g. geth, Infura) */;
 
-const contracts = [
+const contractsRinkeby = [
   {
     name: 'Token Bridge',
     address: '0x7686680Dd6Bd185D7B47913040CD440D217B53Dd',
@@ -90,11 +90,11 @@ async function publishEvents(chainId, events, done){
     done();
 }
 
-const web3 = new Web3(WEB3_PROVIDER_RINKEBY);
+const web3Rinkeby = new Web3(WEB3_PROVIDER_RINKEBY);
 
-const ethereumEvents = new EthereumEvents(web3, contracts, options);
+const ethereumEventsRinkeby = new EthereumEvents(web3Rinkeby, contractsRinkeby, options);
 
-ethereumEvents.on('block.confirmed', (blockNumber, events, done) => {
+ethereumEventsRinkeby.on('block.confirmed', (blockNumber, events, done) => {
     // Events contained in 'confirmed' blocks are considered final,
     // hence the callback is fired only once for each blockNumber.
     // Blocks are delivered in sequential order and one at a time so that none is skipped
@@ -115,7 +115,7 @@ ethereumEvents.on('block.confirmed', (blockNumber, events, done) => {
     }
 });
   
-ethereumEvents.on('error', err => {
+ethereumEventsRinkeby.on('error', err => {
 
     // An error occured while fetching new blocks/events.
     // A retry will be attempted after backoff interval.
@@ -123,11 +123,11 @@ ethereumEvents.on('error', err => {
   
 });
 
-console.log("Ready to start listening for event");
+console.log("Rinkeby (4) - Ready to start listening for event");
 
-ethereumEvents.start(); // startBlock defaults to 'latest' when omitted
+ethereumEventsRinkeby.start(); // startBlock defaults to 'latest' when omitted
 
-console.log("Εvent listener is running? " + ethereumEvents.isRunning())
+console.log("Rinkeby (4) - Εvent listener is running? " + ethereumEventsRinkeby.isRunning())
 
 // Stop listening for events
 // ethereumEvents.stop();
