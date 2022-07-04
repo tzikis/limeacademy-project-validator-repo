@@ -1,6 +1,9 @@
 const dotenv = require("dotenv");
 dotenv.config({path: __dirname + '/.env'});
-const { INFURA_API_KEY, PRIVATE_KEY } = process.env;
+const { INFURA_API_KEY, PRIVATE_KEY, GOOGLE_SERVICE_ACCOUNT_KEY_FILE_PATH } = process.env;
+
+// Imports the Google Cloud client library
+const {PubSub} = require('@google-cloud/pubsub');
 
 const Web3 = require('web3');
 const EthereumEvents = require('ethereum-events');
@@ -28,12 +31,70 @@ const options = {
   backoff: 1000        // retry backoff in milliseconds (default: 1000)
 };
 
+const GOOGLE_APPLICATION_CREDENTIALS = require(GOOGLE_SERVICE_ACCOUNT_KEY_FILE_PATH);
+projectId = GOOGLE_APPLICATION_CREDENTIALS.project_id; // Your Google Cloud Platform project ID
+topicName = 'projects/' + projectId + '/topics/limechain-project-token-bridge-validator-signatures'; // Name for the new topic to create
+
+// Instantiates a client
+const pubsub = new PubSub({projectId, credentials: GOOGLE_APPLICATION_CREDENTIALS});
+
+async function publishMessage(data) {
+  // Publishes the message as a string, e.g. "Hello, world!" or JSON.stringify(someObject)
+  const dataBuffer = Buffer.from(JSON.stringify(data));
+
+  try {
+    // const messageId = await pubsub
+    //   .topic(topicName)
+    //   .publishMessage({data: dataBuffer});
+    const messageId = await pubsub.topic(topicName).publish(dataBuffer);
+    console.log(`Message ${messageId} published.`);
+  } catch (error) {
+    console.error(`Received error while publishing: ${error.message}`);
+    // process.exitCode = 1;
+  }
+}
+
+async function publishEvent(chainId, event){
+  let functionName = "";
+  if(event.name == "Lock")
+      functionName = "lock()"
+  else if(event.name == "Burn")
+      functionName = "burn()";
+  else
+      return;
+
+  console.log("Event values:");
+  console.log(event.values);
+
+  const data = {
+    chainId: chainId,
+    targetChainId: event.values._targetChain,
+    tokenAddress: event.name == "Lock"? event.values._token: event.values._tokenNativeAddress,
+    ownerAddress: event.name == "Lock"? event.values._owner: event.values._receiver,
+    amount: event.values._amount,
+    nonce: event.name == "Lock"? event.values._nonce: event.values.nonce,
+    wrappedTokenAddress: event.name == "Lock"? null: event.values._wrappedTokenAddress
+    }
+  
+  console.log("Publishing message data:");
+  console.log(data);
+  await publishMessage(data);
+}
+
+async function publishEvents(chainId, events, done){
+  for(i = 0; i < events.length; i++){
+    const event = events[i];
+    console.log(event.name);
+      await publishEvent(chainId, event)
+    }
+    done();
+}
+
 const web3 = new Web3(WEB3_PROVIDER_RINKEBY);
 
 const ethereumEvents = new EthereumEvents(web3, contracts, options);
 
 ethereumEvents.on('block.confirmed', (blockNumber, events, done) => {
-
     // Events contained in 'confirmed' blocks are considered final,
     // hence the callback is fired only once for each blockNumber.
     // Blocks are delivered in sequential order and one at a time so that none is skipped
@@ -42,33 +103,17 @@ ethereumEvents.on('block.confirmed', (blockNumber, events, done) => {
     // Call 'done()' after processing the events in order to receive the next block. 
     // If an error occurs, calling 'done(err)' will retry to deliver the same block
     // without skipping it.
+    const chainId = 4;
     if(events.length > 0){
-        console.log("Got Confirmed Events.");
-        console.log("Block Number: " + blockNumber);
+        console.log("Chain: " + chainId + " - Got Confirmed Events.");
+        console.log("Chain: " + chainId + " - Block Number: " + blockNumber);
         // console.log(events);
-        for(i = 0; i < events.length; i++){
-            const event = events[i];
-            console.log(event.name);
-            
-            let functionName = "";
-            if(event.name == "Lock")
-                functionName = "lock()"
-            else if(event.name == "Burn")
-                functionName = "burn()";
-            else
-                return;
-                
-            console.log(event.values);
-            const targetChain = event.values._targetChain;
-            const tokenAddress = event.values._token;
-            const ownerAddress = event.values._owner;
-            const amount = event.values._amount;
-            const nonce = event.values._nonce;
-            console.log([functionName, targetChain, tokenAddress, ownerAddress, amount, nonce]);
-        }
+        publishEvents(chainId, events, done);
     }
-    done();
-  });
+    else{
+      done();
+    }
+});
   
 ethereumEvents.on('error', err => {
 
@@ -76,13 +121,13 @@ ethereumEvents.on('error', err => {
     // A retry will be attempted after backoff interval.
     console.log("ERROR Fetching events!!");
   
-  });
+});
 
-  console.log("Ready to start listening for event");
+console.log("Ready to start listening for event");
 
 ethereumEvents.start(); // startBlock defaults to 'latest' when omitted
 
-console.log("Εvent listener is running?: " + ethereumEvents.isRunning())
+console.log("Εvent listener is running? " + ethereumEvents.isRunning())
 
 // Stop listening for events
 // ethereumEvents.stop();
