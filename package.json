@@ -1,0 +1,17 @@
+{
+  "name": "limeacademy-project-validator-repo",
+  "version": "1.0.0",
+  "description": "A simple validator",
+  "main": "ethereum-event-listener.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bufferutil": "^4.0.6",
+    "dotenv": "^16.0.1",
+    "ethereum-events": "^0.1.3",
+    "web3": "^1.7.4"
+  }
+}
