@@ -74,6 +74,7 @@ ethereumEvents.on('error', err => {
 
     // An error occured while fetching new blocks/events.
     // A retry will be attempted after backoff interval.
+    console.log("ERROR Fetching events!!");
   
   });
 
