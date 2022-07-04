@@ -23,6 +23,15 @@ const contractsRinkeby = [
 }
 ];
 
+const contractsRopsten = [
+  {
+    name: 'Token Bridge',
+    address: '0x5155bE53a3144BAf6D2D8a3123Ac1914d5FDF76F',
+    abi: TOKEN_BRIDGE_ABI,
+    events: ['Lock', 'Burn'] // optional event filter (default: all events)
+}
+];
+
 const options = {
   pollInterval: 13000, // period between polls in milliseconds (default: 13000)
   confirmations: 2,   // n° of confirmation blocks (default: 12)
@@ -128,6 +137,44 @@ console.log("Rinkeby (4) - Ready to start listening for event");
 ethereumEventsRinkeby.start(); // startBlock defaults to 'latest' when omitted
 
 console.log("Rinkeby (4) - Εvent listener is running? " + ethereumEventsRinkeby.isRunning())
+
+
+const web3Ropsten = new Web3(WEB3_PROVIDER_ROPSTEN);
+
+const ethereumEventsRopsten = new EthereumEvents(web3Ropsten, contractsRopsten, options);
+
+ethereumEventsRopsten.on('block.confirmed', (blockNumber, events, done) => {
+    // Events contained in 'confirmed' blocks are considered final,
+    // hence the callback is fired only once for each blockNumber.
+    // Blocks are delivered in sequential order and one at a time so that none is skipped
+    // and you know for sure that every block up to the latest one received was processed.
+    
+    // Call 'done()' after processing the events in order to receive the next block. 
+    // If an error occurs, calling 'done(err)' will retry to deliver the same block
+    // without skipping it.
+    const chainId = 3;
+    if(events.length > 0){
+        console.log("Chain: " + chainId + " - Got Confirmed Events.");
+        console.log("Chain: " + chainId + " - Block Number: " + blockNumber);
+        // console.log(events);
+        publishEvents(chainId, events, done);
+    }
+    else{
+      done();
+    }
+});
+
+ethereumEventsRopsten.on('error', err => {
+    // An error occured while fetching new blocks/events.
+    // A retry will be attempted after backoff interval.
+    console.log("ERROR Fetching events!!");
+});
+
+console.log("Ropsten (3) - Ready to start listening for event");
+
+ethereumEventsRopsten.start(); // startBlock defaults to 'latest' when omitted
+
+console.log("Ropsten (3) - Εvent listener is running? " + ethereumEventsRopsten.isRunning())
 
 // Stop listening for events
 // ethereumEvents.stop();
