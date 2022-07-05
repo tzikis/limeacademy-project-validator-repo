@@ -8,6 +8,7 @@ const getDatabase = require("firebase/database").getDatabase;
 const ref = require("firebase/database").ref;
 const push = require("firebase/database").push;
 const set = require("firebase/database").set;
+const get = require("firebase/database").get;
 
 const Web3 = require('web3');
 const EthereumEvents = require('ethereum-events');
@@ -213,13 +214,40 @@ ethereumEventsRopsten.on('block.confirmed', (blockNumber, events, done) => {
     handleEvents(chainId, blockNumber, events, done);
 });
 
+// Get a list of cities from your database
+async function getLastBlockNumber(chainId) {
+  let blockNumber = null;
+  try{
+    const response = await get(ref(database, 'last-block-number-' + chainId))
+
+    if (response.exists()) {
+      blockNumber = response.val();
+    } else {
+      console.log("No data available");
+    }
+  }
+  catch(error)
+  {
+    console.error(error);
+  }
+  return blockNumber;
+}
+
 async function startListening() {
+  const lastBlockNumberRinkeby = await getLastBlockNumber(4);
   console.log("Rinkeby (4) - Ready to start listening for event");
-  ethereumEventsRinkeby.start(); // startBlock defaults to 'latest' when omitted
+  if(lastBlockNumberRinkeby == null)
+    ethereumEventsRinkeby.start(); // startBlock defaults to 'latest' when omitted
+  else
+    ethereumEventsRinkeby.start(lastBlockNumberRinkeby);
   console.log("Rinkeby (4) - Εvent listener is running? " + ethereumEventsRinkeby.isRunning())
 
+  const lastBlockNumberRopsten = await getLastBlockNumber(3);
   console.log("Ropsten (3) - Ready to start listening for event");
-  ethereumEventsRopsten.start(); // startBlock defaults to 'latest' when omitted
+  if(lastBlockNumberRopsten == null)
+   ethereumEventsRopsten.start(); // startBlock defaults to 'latest' when omitted
+  else
+    ethereumEventsRopsten.start(lastBlockNumberRopsten);
   console.log("Ropsten (3) - Εvent listener is running? " + ethereumEventsRopsten.isRunning())
 }
 
