@@ -61,13 +61,12 @@ const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
 
-async function publishMessage(blockNumber, data) {
+async function publishMessage(data) {
   try {
     console.log("Publishing Validation Signature Message");
     const postListRef = ref(database, 'signatures');
     const newPostRef = push(postListRef);
-    set(newPostRef, data);
-    set(ref(database, 'last-block-number'), blockNumber);
+    await set(newPostRef, data);
   } catch (error) {
     console.error(`Received error while publishing: ${error.message}`);
     // process.exitCode = 1;
@@ -102,16 +101,15 @@ async function publishEvent(chainId, blockNumber, event){
 
   const signature = await createValidSignature(myWallet, contractAddress, data);
   console.log("Generated Signature: " + signature);
-  await publishMessage(blockNumber, {data: data, signature: signature});
+  await publishMessage({data: data, signature: signature});
 }
 
-async function publishEvents(chainId, blockNumber, events, done){
+async function publishEvents(chainId, blockNumber, events){
   for(i = 0; i < events.length; i++){
     const event = events[i];
     console.log(event.name);
       await publishEvent(chainId, blockNumber, event)
     }
-    done();
 }
 
 async function createValidSignature (_signer, _tokenBridgeContractAddress, message) {
@@ -148,6 +146,28 @@ async function createValidSignature (_signer, _tokenBridgeContractAddress, messa
   return signature;
 }
 
+async function handleEvents(chainId, blockNumber, events, done){
+  if(events.length > 0) {
+    console.log("Chain: " + chainId + " - Got Confirmed Events.");
+    console.log("Chain: " + chainId + " - Block Number: " + blockNumber);
+    // console.log(events);
+    await publishEvents(chainId, blockNumber, events, done);
+  }
+  else {
+    console.log(chainId + ": Empty Events list");
+  }
+
+  try {
+    console.log(chainId + ": Updating Last Block ID - " + blockNumber);
+    await set(ref(database, 'last-block-number-' + chainId), blockNumber);
+  }
+  catch (error) {
+    console.error(`Received error while publishing: ${error.message}`);
+  }
+
+    done();
+}
+
 const web3Rinkeby = new Web3(WEB3_PROVIDER_RINKEBY);
 const web3Ropsten = new Web3(WEB3_PROVIDER_ROPSTEN);
 
@@ -177,15 +197,7 @@ ethereumEventsRinkeby.on('block.confirmed', (blockNumber, events, done) => {
     // If an error occurs, calling 'done(err)' will retry to deliver the same block
     // without skipping it.
     const chainId = 4;
-    if(events.length > 0){
-        console.log("Chain: " + chainId + " - Got Confirmed Events.");
-        console.log("Chain: " + chainId + " - Block Number: " + blockNumber);
-        // console.log(events);
-        publishEvents(chainId, blockNumber, events, done);
-    }
-    else{
-      done();
-    }
+    handleEvents(chainId, blockNumber, events, done);
 });
 
 ethereumEventsRopsten.on('block.confirmed', (blockNumber, events, done) => {
@@ -198,15 +210,7 @@ ethereumEventsRopsten.on('block.confirmed', (blockNumber, events, done) => {
     // If an error occurs, calling 'done(err)' will retry to deliver the same block
     // without skipping it.
     const chainId = 3;
-    if(events.length > 0){
-        console.log("Chain: " + chainId + " - Got Confirmed Events.");
-        console.log("Chain: " + chainId + " - Block Number: " + blockNumber);
-        // console.log(events);
-        publishEvents(chainId, blockNumber, events, done);
-    }
-    else{
-      done();
-    }
+    handleEvents(chainId, blockNumber, events, done);
 });
 
 
