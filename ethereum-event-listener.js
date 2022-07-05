@@ -149,8 +149,23 @@ async function createValidSignature (_signer, _tokenBridgeContractAddress, messa
 }
 
 const web3Rinkeby = new Web3(WEB3_PROVIDER_RINKEBY);
+const web3Ropsten = new Web3(WEB3_PROVIDER_ROPSTEN);
 
 const ethereumEventsRinkeby = new EthereumEvents(web3Rinkeby, contractsRinkeby, options);
+const ethereumEventsRopsten = new EthereumEvents(web3Ropsten, contractsRopsten, options);
+
+ethereumEventsRinkeby.on('error', err => {
+  // An error occured while fetching new blocks/events.
+  // A retry will be attempted after backoff interval.
+  console.log("ERROR Fetching events!!");
+
+});
+
+ethereumEventsRopsten.on('error', err => {
+// An error occured while fetching new blocks/events.
+// A retry will be attempted after backoff interval.
+console.log("ERROR Fetching events!!");
+});
 
 ethereumEventsRinkeby.on('block.confirmed', (blockNumber, events, done) => {
     // Events contained in 'confirmed' blocks are considered final,
@@ -172,25 +187,6 @@ ethereumEventsRinkeby.on('block.confirmed', (blockNumber, events, done) => {
       done();
     }
 });
-  
-ethereumEventsRinkeby.on('error', err => {
-
-    // An error occured while fetching new blocks/events.
-    // A retry will be attempted after backoff interval.
-    console.log("ERROR Fetching events!!");
-  
-});
-
-console.log("Rinkeby (4) - Ready to start listening for event");
-
-ethereumEventsRinkeby.start(); // startBlock defaults to 'latest' when omitted
-
-console.log("Rinkeby (4) - Εvent listener is running? " + ethereumEventsRinkeby.isRunning())
-
-
-const web3Ropsten = new Web3(WEB3_PROVIDER_ROPSTEN);
-
-const ethereumEventsRopsten = new EthereumEvents(web3Ropsten, contractsRopsten, options);
 
 ethereumEventsRopsten.on('block.confirmed', (blockNumber, events, done) => {
     // Events contained in 'confirmed' blocks are considered final,
@@ -213,16 +209,13 @@ ethereumEventsRopsten.on('block.confirmed', (blockNumber, events, done) => {
     }
 });
 
-ethereumEventsRopsten.on('error', err => {
-    // An error occured while fetching new blocks/events.
-    // A retry will be attempted after backoff interval.
-    console.log("ERROR Fetching events!!");
-});
+
+console.log("Rinkeby (4) - Ready to start listening for event");
+ethereumEventsRinkeby.start(); // startBlock defaults to 'latest' when omitted
+console.log("Rinkeby (4) - Εvent listener is running? " + ethereumEventsRinkeby.isRunning())
 
 console.log("Ropsten (3) - Ready to start listening for event");
-
 ethereumEventsRopsten.start(); // startBlock defaults to 'latest' when omitted
-
 console.log("Ropsten (3) - Εvent listener is running? " + ethereumEventsRopsten.isRunning())
 
 // Stop listening for events
