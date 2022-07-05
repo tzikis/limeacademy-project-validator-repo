@@ -3,7 +3,11 @@ dotenv.config({path: __dirname + '/.env'});
 const { INFURA_API_KEY, PRIVATE_KEY, GOOGLE_SERVICE_ACCOUNT_KEY_FILE_PATH } = process.env;
 
 // Imports the Google Cloud client library
-const {PubSub} = require('@google-cloud/pubsub');
+const initializeApp = require("firebase/app").initializeApp;
+const getDatabase = require("firebase/database").getDatabase;
+const ref = require("firebase/database").ref;
+const push = require("firebase/database").push;
+const set = require("firebase/database").set;
 
 const Web3 = require('web3');
 const EthereumEvents = require('ethereum-events');
@@ -45,31 +49,32 @@ const options = {
   backoff: 1000        // retry backoff in milliseconds (default: 1000)
 };
 
-const GOOGLE_APPLICATION_CREDENTIALS = require(GOOGLE_SERVICE_ACCOUNT_KEY_FILE_PATH);
-projectId = GOOGLE_APPLICATION_CREDENTIALS.project_id; // Your Google Cloud Platform project ID
-topicName = 'projects/' + projectId + '/topics/limechain-project-token-bridge-validator-signatures'; // Name for the new topic to create
+// See: https://firebase.google.com/docs/web/learn-more#config-object
+const firebaseConfig = {
+  databaseURL: "https://lime-token-bridge-validator-default-rtdb.europe-west1.firebasedatabase.app/",
+};
 
-// Instantiates a client
-const pubsub = new PubSub({projectId, credentials: GOOGLE_APPLICATION_CREDENTIALS});
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
-async function publishMessage(data) {
-  // Publishes the message as a string, e.g. "Hello, world!" or JSON.stringify(someObject)
-  const dataBuffer = Buffer.from(JSON.stringify(data));
+// Initialize Realtime Database and get a reference to the service
+const database = getDatabase(app);
 
+
+async function publishMessage(blockNumber, data) {
   try {
-    // const messageId = await pubsub
-    //   .topic(topicName)
-    //   .publishMessage({data: dataBuffer});
     console.log("Publishing Validation Signature Message");
-    const messageId = await pubsub.topic(topicName).publish(dataBuffer);
-    console.log(`Message ${messageId} published.`);
+    const postListRef = ref(database, 'signatures');
+    const newPostRef = push(postListRef);
+    set(newPostRef, data);
+    set(ref(database, 'last-block-number'), blockNumber);
   } catch (error) {
     console.error(`Received error while publishing: ${error.message}`);
     // process.exitCode = 1;
   }
 }
 
-async function publishEvent(chainId, event){
+async function publishEvent(chainId, blockNumber, event){
   let functionName = "";
   if(event.name == "Lock")
       functionName = "lock()"
@@ -97,14 +102,14 @@ async function publishEvent(chainId, event){
 
   const signature = await createValidSignature(myWallet, contractAddress, data);
   console.log("Generated Signature: " + signature);
-  await publishMessage({data: data, signature: signature});
+  await publishMessage(blockNumber, {data: data, signature: signature});
 }
 
-async function publishEvents(chainId, events, done){
+async function publishEvents(chainId, blockNumber, events, done){
   for(i = 0; i < events.length; i++){
     const event = events[i];
     console.log(event.name);
-      await publishEvent(chainId, event)
+      await publishEvent(chainId, blockNumber, event)
     }
     done();
 }
@@ -161,7 +166,7 @@ ethereumEventsRinkeby.on('block.confirmed', (blockNumber, events, done) => {
         console.log("Chain: " + chainId + " - Got Confirmed Events.");
         console.log("Chain: " + chainId + " - Block Number: " + blockNumber);
         // console.log(events);
-        publishEvents(chainId, events, done);
+        publishEvents(chainId, blockNumber, events, done);
     }
     else{
       done();
@@ -201,7 +206,7 @@ ethereumEventsRopsten.on('block.confirmed', (blockNumber, events, done) => {
         console.log("Chain: " + chainId + " - Got Confirmed Events.");
         console.log("Chain: " + chainId + " - Block Number: " + blockNumber);
         // console.log(events);
-        publishEvents(chainId, events, done);
+        publishEvents(chainId, blockNumber, events, done);
     }
     else{
       done();
