@@ -213,14 +213,17 @@ ethereumEventsRopsten.on('block.confirmed', (blockNumber, events, done) => {
     handleEvents(chainId, blockNumber, events, done);
 });
 
+async function startListening() {
+  console.log("Rinkeby (4) - Ready to start listening for event");
+  ethereumEventsRinkeby.start(); // startBlock defaults to 'latest' when omitted
+  console.log("Rinkeby (4) - Εvent listener is running? " + ethereumEventsRinkeby.isRunning())
 
-console.log("Rinkeby (4) - Ready to start listening for event");
-ethereumEventsRinkeby.start(); // startBlock defaults to 'latest' when omitted
-console.log("Rinkeby (4) - Εvent listener is running? " + ethereumEventsRinkeby.isRunning())
+  console.log("Ropsten (3) - Ready to start listening for event");
+  ethereumEventsRopsten.start(); // startBlock defaults to 'latest' when omitted
+  console.log("Ropsten (3) - Εvent listener is running? " + ethereumEventsRopsten.isRunning())
+}
 
-console.log("Ropsten (3) - Ready to start listening for event");
-ethereumEventsRopsten.start(); // startBlock defaults to 'latest' when omitted
-console.log("Ropsten (3) - Εvent listener is running? " + ethereumEventsRopsten.isRunning())
+startListening();
 
 // Stop listening for events
 // ethereumEvents.stop();
